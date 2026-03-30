@@ -9,19 +9,20 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from collector import poll_loop
 from daily import daily_job
-from routers import readings, chat
+from routers import readings, chat, raw_input
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(readings.router)
 app.include_router(chat.router)
+app.include_router(raw_input.router)
 
 
 @app.on_event("startup")

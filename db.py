@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Float, String, Integer, DateTime, Date, desc
+from sqlalchemy import create_engine, Column, Float, String, Integer, DateTime, Date, Text
 from sqlalchemy.orm import DeclarativeBase, Session
 import os
 
@@ -18,11 +18,17 @@ class GlucoseReading(Base):
     recorded_at = Column(DateTime)
 
 
+_engine = None
+
+
 def get_engine():
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        raise RuntimeError("DATABASE_URL not set")
-    return create_engine(url)
+    global _engine
+    if _engine is None:
+        url = os.getenv("DATABASE_URL")
+        if not url:
+            raise RuntimeError("DATABASE_URL not set")
+        _engine = create_engine(url, pool_size=2, max_overflow=2)
+    return _engine
 
 
 def init_db(engine):
@@ -83,6 +89,7 @@ def get_readings_for_date(session: Session, date):
     return rows
 
 
+
 def get_daily_stats_range(session: Session, start_date, end_date):
     return (
         session.query(DailyStat)
@@ -107,7 +114,9 @@ def get_readings_range(session: Session, start_date, end_date):
 
 
 def get_latest(session: Session):
+    from sqlalchemy import desc
     return session.query(GlucoseReading).order_by(desc(GlucoseReading.recorded_at)).first()
+
 
 
 def get_last_24h(session: Session):
@@ -121,3 +130,35 @@ def get_last_24h(session: Session):
         .order_by(parsed)
         .all()
     )
+
+
+class RawInput(Base):
+    __tablename__ = "raw_inputs"
+
+    id = Column(Integer, primary_key=True)
+    content = Column(Text, nullable=False)
+    source = Column(String)  # 'text' or 'voice'
+    created_at = Column(DateTime)
+
+
+def save_raw_input(session: Session, content: str, source: str):
+    from datetime import datetime, timezone
+    entry = RawInput(
+        content=content,
+        source=source,
+        created_at=datetime.now(timezone.utc),
+    )
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
+    return entry
+
+
+def get_raw_inputs(session: Session, limit: int = 200):
+    rows = (
+        session.query(RawInput)
+        .order_by(RawInput.created_at.desc(), RawInput.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return list(reversed(rows))

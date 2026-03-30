@@ -53,7 +53,7 @@ Key facts:
 - Data availability: % of expected readings (96 per day, one every 15 min)
 
 Be concise. Flag anything concerning. Always include mmol/L units.
-Avoid LaTeX formatting unless the formula is genuinely complex. For simple expressions, write them as plain text (e.g. "HbA1c ≈ avg / 1.59"). If you do use math, use $$ ... $$ for block equations and $ ... $ for inline math. Never use \[ \] or \( \) LaTeX delimiters."""
+Avoid LaTeX formatting unless the formula is genuinely complex. For simple expressions, write them as plain text (e.g. "HbA1c ≈ avg / 1.59"). If you do use math, use $$ ... $$ for block equations and $ ... $ for inline math. Never use \\[ \\] or \\( \\) LaTeX delimiters."""
 
 
 class ChatRequest(BaseModel):
