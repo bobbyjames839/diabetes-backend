@@ -7,7 +7,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from db import get_engine, get_raw_inputs, save_raw_input
+from db import delete_raw_input, get_engine, get_raw_inputs, save_raw_input
 
 router = APIRouter()
 
@@ -93,3 +93,15 @@ async def submit_voice(audio: UploadFile = File(...)):
         entry = save_raw_input(session, transcript, "voice")
 
     return {"ok": True, "id": entry.id, "transcript": transcript}
+
+
+@router.delete("/raw-input/{entry_id}")
+def remove_raw_input(entry_id: int):
+    engine = get_engine()
+    with Session(engine) as session:
+        deleted = delete_raw_input(session, entry_id)
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Message not found.")
+
+    return {"ok": True}

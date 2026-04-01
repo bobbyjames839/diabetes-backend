@@ -162,3 +162,13 @@ def get_raw_inputs(session: Session, limit: int = 200):
         .all()
     )
     return list(reversed(rows))
+
+
+def delete_raw_input(session: Session, entry_id: int) -> bool:
+    entry = session.get(RawInput, entry_id)
+    if entry is None:
+        return False
+
+    session.delete(entry)
+    session.commit()
+    return True
