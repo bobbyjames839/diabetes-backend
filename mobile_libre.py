@@ -32,6 +32,20 @@ def _parse_sensor_timestamp(value: str | None) -> datetime | None:
         return None
 
 
+def _extract_connection_reading(connection: dict[str, Any]) -> tuple[str, dict[str, Any], datetime] | None:
+    patient_id = connection.get("patientId")
+    glucose_measurement = connection.get("glucoseMeasurement")
+    if not patient_id or not isinstance(glucose_measurement, dict):
+        return None
+
+    reading = parse_reading(glucose_measurement)
+    ts = _parse_sensor_timestamp(reading.get("timestamp"))
+    if ts is None:
+        return None
+
+    return patient_id, reading, ts
+
+
 def _classify_value(value: Any) -> str:
     return classify_value(value, MOBILE_LOW_THRESHOLD, MOBILE_HIGH_THRESHOLD)
 
@@ -58,31 +72,51 @@ async def _fetch_latest_reading() -> dict[str, Any]:
     if not connections:
         raise RuntimeError("No Libre connections found")
 
-    patient_id = connections[0].get("patientId")
-    if not patient_id:
+    latest_patient_id: str | None = None
+    latest_connection_reading: dict[str, Any] | None = None
+    latest_connection_timestamp: datetime | None = None
+
+    for connection in connections:
+        extracted = _extract_connection_reading(connection)
+        if extracted is None:
+            continue
+
+        patient_id, reading, ts = extracted
+        if latest_connection_timestamp is None or ts > latest_connection_timestamp:
+            latest_patient_id = patient_id
+            latest_connection_reading = reading
+            latest_connection_timestamp = ts
+
+    if latest_patient_id is None:
+        latest_patient_id = connections[0].get("patientId")
+
+    if not latest_patient_id:
         raise RuntimeError("Libre connection missing patient id")
 
-    graph_data = await get_graph(_token, _account_id, patient_id)
+    graph_data = await get_graph(_token, _account_id, latest_patient_id)
     raw_readings = graph_data.get("graphData", [])
-    if not raw_readings:
-        raise RuntimeError("No Libre graph readings returned")
 
-    latest_reading: dict[str, Any] | None = None
-    latest_timestamp: datetime | None = None
+    latest_graph_reading: dict[str, Any] | None = None
+    latest_graph_timestamp: datetime | None = None
 
     for raw in raw_readings:
         reading = parse_reading(raw)
         ts = _parse_sensor_timestamp(reading.get("timestamp"))
         if ts is None:
             continue
-        if latest_timestamp is None or ts > latest_timestamp:
-            latest_timestamp = ts
-            latest_reading = reading
+        if latest_graph_timestamp is None or ts > latest_graph_timestamp:
+            latest_graph_timestamp = ts
+            latest_graph_reading = reading
 
-    if latest_reading is None:
-        raise RuntimeError("Could not parse Libre reading timestamps")
+    if latest_graph_reading is not None and (
+        latest_connection_timestamp is None or latest_graph_timestamp is None or latest_graph_timestamp >= latest_connection_timestamp
+    ):
+        return latest_graph_reading
 
-    return latest_reading
+    if latest_connection_reading is not None:
+        return latest_connection_reading
+
+    raise RuntimeError("Could not parse Libre reading timestamps")
 
 
 async def refresh_mobile_payload(dispatch_alerts: bool = True) -> dict[str, Any]:
