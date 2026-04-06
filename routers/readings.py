@@ -1,30 +1,13 @@
 import math
 import re
-from datetime import date, datetime, timezone, timedelta
+from datetime import date
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy.orm import Session
 
-from db import get_engine, get_latest, get_last_24h, get_readings_for_date, get_all_daily_stats
+from db import get_engine, get_last_24h, get_readings_for_date, get_all_daily_stats
 
 router = APIRouter()
-
-
-@router.get("/current")
-def current():
-    engine = get_engine()
-    with Session(engine) as session:
-        reading = get_latest(session)
-        if not reading:
-            raise HTTPException(status_code=503, detail="No data yet")
-        return {
-            "value": reading.value,
-            "trend": reading.trend,
-            "trend_raw": reading.trend_raw,
-            "sensor_timestamp": reading.sensor_timestamp,
-            "recorded_at": reading.recorded_at,
-        }
-
 
 @router.get("/readings")
 def readings():
@@ -39,7 +22,6 @@ def readings():
             }
             for r in rows
         ]
-
 
 @router.get("/readings/{date_str}")
 def readings_for_date(date_str: str):
