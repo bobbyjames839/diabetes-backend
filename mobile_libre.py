@@ -85,7 +85,7 @@ async def _fetch_latest_reading() -> dict[str, Any]:
     return latest_reading
 
 
-async def poll_mobile_once() -> None:
+async def refresh_mobile_payload(dispatch_alerts: bool = True) -> dict[str, Any]:
     global _token, _account_id
 
     try:
@@ -97,13 +97,17 @@ async def poll_mobile_once() -> None:
             _latest_payload["status"] = status
             _latest_payload["updated_at"] = datetime.now(timezone.utc).isoformat()
             _latest_payload["error"] = None
+            payload = copy.deepcopy(_latest_payload)
 
-        # Send a push alert for every high/low poll unless silenced by device settings.
-        await dispatch_threshold_alerts(
-            reading,
-            default_low_threshold=MOBILE_LOW_THRESHOLD,
-            default_high_threshold=MOBILE_HIGH_THRESHOLD,
-        )
+        if dispatch_alerts:
+            # Send a push alert for every high/low poll unless silenced by device settings.
+            await dispatch_threshold_alerts(
+                reading,
+                default_low_threshold=MOBILE_LOW_THRESHOLD,
+                default_high_threshold=MOBILE_HIGH_THRESHOLD,
+            )
+
+        return payload
 
     except Exception as exc:
         _token = None
@@ -111,7 +115,13 @@ async def poll_mobile_once() -> None:
         async with _state_lock:
             _latest_payload["updated_at"] = datetime.now(timezone.utc).isoformat()
             _latest_payload["error"] = str(exc)
+            payload = copy.deepcopy(_latest_payload)
         print(f"[mobile_libre] Poll error: {exc}", flush=True)
+        return payload
+
+
+async def poll_mobile_once() -> None:
+    await refresh_mobile_payload(dispatch_alerts=True)
 
 
 async def mobile_poll_loop() -> None:
@@ -121,6 +131,12 @@ async def mobile_poll_loop() -> None:
         await asyncio.sleep(300)
 
 
-async def get_latest_mobile_payload() -> dict[str, Any]:
+async def get_latest_mobile_payload(
+    force_refresh: bool = False,
+    dispatch_alerts: bool = False,
+) -> dict[str, Any]:
+    if force_refresh:
+        return await refresh_mobile_payload(dispatch_alerts=dispatch_alerts)
+
     async with _state_lock:
         return copy.deepcopy(_latest_payload)
