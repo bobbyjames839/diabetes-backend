@@ -185,6 +185,7 @@ async def dispatch_threshold_alerts(
                 },
                 "sound": "default",
                 "priority": "high",
+                "interruptionLevel": "time-sensitive",
                 "channelId": "glucose-alerts",
             }
         )

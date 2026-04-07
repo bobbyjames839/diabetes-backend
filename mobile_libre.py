@@ -9,6 +9,10 @@ from mobile_alerts import dispatch_threshold_alerts
 
 MOBILE_LOW_THRESHOLD = float(os.getenv("MOBILE_LOW_THRESHOLD", "4"))
 MOBILE_HIGH_THRESHOLD = float(os.getenv("MOBILE_HIGH_THRESHOLD", "10"))
+MOBILE_BACKGROUND_POLL_INTERVAL_SECONDS = max(
+    20,
+    int(os.getenv("MOBILE_BACKGROUND_POLL_INTERVAL_SECONDS", "60")),
+)
 
 _token: str | None = None
 _account_id: str | None = None
@@ -159,10 +163,13 @@ async def poll_mobile_once() -> None:
 
 
 async def mobile_poll_loop() -> None:
-    print("Mobile Libre poller started (every 5 minutes)", flush=True)
+    print(
+        f"Mobile Libre poller started (every {MOBILE_BACKGROUND_POLL_INTERVAL_SECONDS} seconds)",
+        flush=True,
+    )
     while True:
         await poll_mobile_once()
-        await asyncio.sleep(300)
+        await asyncio.sleep(MOBILE_BACKGROUND_POLL_INTERVAL_SECONDS)
 
 
 async def get_latest_mobile_payload(
